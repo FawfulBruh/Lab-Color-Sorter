@@ -59,7 +59,43 @@ export default class ML {
     }
 
     // Classify an RGB color with the trained model and return its label.
-    async classify(color) {}
+
+    async classify(color) {
+        if (!this.model) {
+            throw new Error(
+                'The model has not been trained yet. Train the model first.',
+            );
+        }
+
+        // Use only the RGB values. The game's color objects also carry the
+        // true label, which the model must never see.
+        const { red, green, blue } = color ?? {};
+        const input = [red, green, blue];
+        if (!input.every(Number.isFinite)) {
+            throw new Error(
+                'classify() needs numeric red, green, and blue values.',
+            );
+        }
+
+        const results = await new Promise((resolve, reject) => {
+            // ml5 v1 calls back with (results, error).
+            const pending = this.model.classify(input, (results, error) => {
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(results);
+                }
+            });
+            pending?.catch?.(reject);
+        });
+
+        // Results are sorted by confidence, so the first entry is the best guess.
+        const label = results?.[0]?.label;
+        if (typeof label !== 'string') {
+            throw new Error('The model did not return a prediction.');
+        }
+        return label.toLowerCase();
+    }
 
 
 }
